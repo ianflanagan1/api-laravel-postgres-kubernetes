@@ -1,0 +1,184 @@
+### HOME K3S CLUSTER ##########################
+
+# Static provisioning
+kubectl apply -f k8s/home-k3s/prometheus-storage-class.yaml
+kubectl apply -f k8s/home-k3s/k3s-01-prometheus-pv.yaml
+
+# Dynamic provisioning
+kubectl -n kube-system get configmap local-path-config -o yaml
+
+### create the pv diretories with 777 permissions e.g. /mnt/ks3-01-usb-storage-mp/k8s-volumes/dynamically-provisioned
+sudo mkdir -p /mnt/ks3-01-usb-storage-mp/k8s-volumes/dynamically-provisioned
+sudo chmod 0777 /mnt/ks3-01-usb-storage-mp/k8s-volumes/dynamically-provisioned
+sudo mkdir -p /mnt/ks3-01-usb-storage-mp/k8s-volumes/k3s-01-prometheus-pv
+sudo chmod 0777 /mnt/ks3-01-usb-storage-mp/k8s-volumes/k3s-01-prometheus-pv
+
+sudo mkdir -p /mnt/ks3-02-usb-storage-mp/k8s-volumes/dynamically-provisioned
+sudo chmod 0777 /mnt/ks3-02-usb-storage-mp/k8s-volumes/dynamically-provisioned
+
+kubectl apply -f k8s/home-k3s/local-path-config.yaml
+kubectl -n kube-system delete pod -l app=local-path-provisioner
+
+# prometheus
+helm repo add Prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+helm install prometheus prometheus-community/kube-prometheus-stack \
+  --namespace monitoring \
+  --create-namespace \
+  --set prometheus.prometheusSpec.maximumStartupDurationSeconds=60 \
+  --set grafana.adminUser=admin \
+  --set grafana.adminPassword='PASSWORD'
+
+# ingress-nginx
+helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+helm repo update
+helm install ingress-nginx ingress-nginx/ingress-nginx --namespace ingress-nginx --create-namespace --set controller.service.enabled=false --set controller.hostPort.enabled=true --set controller.kind=DaemonSet --set controller.replicaCount=1 --set controller.nodeSelector."kubernetes\.io/hostname"="$(kubectl get nodes -o jsonpath='{.items[0].metadata.name}')" --set controller.ingressClassResource.default=true
+kubectl -n ingress-nginx patch daemonset ingress-nginx-controller \
+  --type='json' \
+  -p='[{
+    "op": "add",
+    "path": "/spec/template/spec/tolerations",
+    "value": [{
+      "key": "CriticalAddonsOnly",
+      "operator": "Equal",
+      "value": "true",
+      "effect": "NoExecute"
+    }]
+  }]'
+kubectl apply -f k8s/home-k3s/ingress-nginx-configmap.yaml
+kubectl rollout restart daemonset ingress-nginx-controller -n ingress-nginx
+
+#ingress values file
+helm upgrade ingress-nginx ingress-nginx/ingress-nginx \
+  --version 4.12.3 \
+  -f k8s/home-k3s/ingress-nginx-values.yaml \
+  --namespace ingress-nginx
+
+# cert manager
+kubectl apply -f https://github.com/cert-manager/cert-manager/releases/latest/download/cert-manager.yaml
+# kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.12.0/cert-manager.yaml
+  # alternative
+  helm repo add jetstack https://charts.jetstack.io
+  helm repo update
+  helm install cert-manager jetstack/cert-manager --namespace cert-manager --create-namespace --version v1.17 --set installCRDs=true
+
+kubectl apply -f k8s/home-k3s/clusterissuer-nginx.yaml
+kubectl apply -f k8s/home-k3s/frontend-ingress.yaml
+kubectl apply -f k8s/home-k3s/laravel-ingress.yaml
+kubectl apply -f k8s/home-k3s/grafana-ingress.yaml
+
+
+
+
+
+### KIND CLUSTER ##############################
+
+# prometheus
+helm repo add Prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+helm install prometheus prometheus-community/kube-prometheus-stack \
+  --namespace monitoring \
+  --create-namespace \
+  --set prometheus.prometheusSpec.maximumStartupDurationSeconds=60 \
+  --set grafana.adminUser=admin \
+  --set grafana.adminPassword='PASSWORD'
+
+
+
+
+
+### GENERAL ###################################
+
+# Fluent bit
+# helm repo add fluent https://fluent.github.io/helm-charts
+# helm repo update
+# helm install fluent-bit fluent/fluent-bit --namespace logging --create-namespace
+# kubectl apply -f k8s/fluent-bit-configmap.yaml
+
+
+kubectl create namespace laravel
+kubectl create namespace postgres
+kubectl create namespace redis
+kubectl create namespace frontend
+#kubectl create namespace monitoring
+
+	kubectl create secret generic laravel \
+		--namespace laravel \
+		--from-env-file=$(LARAVEL_DIRECTORY)/.env.production \
+		--dry-run=client -o yaml | \
+			kubectl apply -f - --namespace laravel
+	kubectl create secret generic redis \
+		--namespace redis \
+		--from-literal=REDIS_PASSWORD="$$(grep '^REDIS_PASSWORD=' "$(LARAVEL_DIRECTORY)/.env.production" | awk -F'=' '{print $$2}')" \
+		--dry-run=client -o yaml | \
+			kubectl apply -f - --namespace redis
+	kubectl create secret generic postgres \
+  	--namespace laravel \
+	  --from-literal=POSTGRES_USER="$$(grep '^POSTGRES_USER=' "$(LARAVEL_DIRECTORY)/.env.production" | awk -F'=' '{print $$2}')" \
+	  --from-literal=POSTGRES_PASSWORD="$$(grep '^POSTGRES_PASSWORD=' "$(LARAVEL_DIRECTORY)/.env.production" | awk -F'=' '{print $$2}')" \
+	  --from-literal=POSTGRES_DB="$$(grep '^POSTGRES_DB=' "$(LARAVEL_DIRECTORY)/.env.production" | awk -F'=' '{print $$2}')" \
+	  --from-literal=REPLICATION_USER="$$(grep '^REPLICATION_USER=' "$(LARAVEL_DIRECTORY)/.env.production" | awk -F'=' '{print $$2}')" \
+	  --from-literal=REPLICATION_PASSWORD="$$(grep '^REPLICATION_PASSWORD=' "$(LARAVEL_DIRECTORY)/.env.production" | awk -F'=' '{print $$2}')" \
+		--dry-run=client -o yaml | \
+			kubectl apply -f - --namespace laravel
+	kubectl create configmap php-config \
+		--namespace laravel \
+		--from-file=config/prod/backend/php/php.ini -o yaml \
+		--dry-run=client | \
+			kubectl apply -f - --namespace laravel
+	kubectl create configmap php-fpm-config \
+		--namespace laravel \
+		--from-file=config/prod/backend/php-fpm/php-fpm.conf -o yaml \
+		--dry-run=client | \
+			kubectl apply -f - --namespace laravel
+	kubectl create configmap nginx-config \
+		--namespace laravel \
+		--from-file=config/prod/backend/nginx/nginx.conf \
+		--dry-run=client | \
+			kubectl apply -f - --namespace laravel
+	kubectl create configmap nginx-config \
+		--namespace frontend \
+		--from-file=config/prod/frontend/nginx/nginx.conf \
+		--dry-run=client | \
+			kubectl apply -f - --namespace frontend
+
+kubectl apply -f k8s/postgres-secret.yaml
+kubectl apply -f k8s/postgres-configmap.yaml
+kubectl apply -f k8s/postgres-service.yaml
+kubectl apply -f k8s/postgres-statefulset.yaml
+
+kubectl apply -f k8s/redis-statefulset-service.yaml
+
+# depends on postgres (and redis?)
+kubectl apply -f k8s/laravel-seed-db-job.yaml
+kubectl apply -f k8s/laravel-service.yaml
+kubectl apply -f k8s/laravel-deployment.yaml
+
+# frontend
+kubectl apply -f k8s/frontend-service.yaml
+kubectl apply -f k8s/frontend-deployment.yaml
+
+ # prometheus monitors
+kubectl apply -f k8s/postgres-service-monitor.yaml
+kubectl apply -f k8s/redis-service-monitor.yaml
+kubectl apply -f k8s/frontend-service-monitor.yaml 
+kubectl apply -f k8s/fluent-bit-service-monitor.yaml 
+
+
+
+
+
+
+# metric-server
+helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/
+helm repo update
+helm upgrade --install metrics-server metrics-server/metrics-server --namespace kube-system
+
+kubectl -n laravel autoscale deployment laravel --cpu-percent=50 --min=1 --max=10
+
+
+#### MAINTENANCE
+
+# Prometheus
+
+kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 9090:9090

@@ -1,0 +1,29 @@
+
+# Build artifacts
+dist/
+dist-ssr/
+*.tsbuildinfo
+
+# Utility files
+*.d.ts
+
+# Node dependencies
+node_modules/
+
+# Test snapshots or coverage
+cypress/videos/
+cypress/screenshots/
+
+# Test coverage and cache
+.vitest/
+.vitest-cache/
+.eslintcache
+coverage/
+
+# IDE
+.vscode/
+.idea/
+
+# Dependency management
+package.json
+package-lock.json

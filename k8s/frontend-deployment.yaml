@@ -1,0 +1,149 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: frontend
+  labels:
+    app: frontend
+  annotations:
+    container.apparmor.security.beta.kubernetes.io/laravel: runtime/default
+    container.apparmor.security.beta.kubernetes.io/nginx: runtime/default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 30
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: frontend
+                topologyKey: "kubernetes.io/hostname"
+      initContainers:
+        - name: init-nginx
+          image: busybox:latest # todo: change to chainguard
+          # image: cgr.dev/chainguard/busybox:latest
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            runAsUser: 65532
+            runAsGroup: 65532
+            privileged: false
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+            procMount: 
+          resources:
+            requests:
+              cpu: 5m
+              memory: 5Mi
+            limits:
+              cpu: 10m
+              memory: 10Mi
+          command: [ "/bin/sh", "-c" ]
+          args:
+            - |
+              #!/bin/sh
+              set -eux
+
+              mkdir -p \
+                /var/lib/nginx/cache/fastcgi \
+                /var/lib/nginx/cache/proxy \
+                /var/lib/nginx/tmp/client \
+                /var/lib/nginx/tmp/fastcgi \
+                /var/lib/nginx/tmp/proxy \
+                /var/lib/nginx/tmp/scgi \
+                /var/lib/nginx/tmp/uwsgi
+          volumeMounts:
+            - name: nginx-writable
+              mountPath: /var/lib/nginx
+      containers:
+        - name: nginx
+          image: docker.io/ianflanagan1/wh-frontend-nginx-prod:latest
+          imagePullPolicy: Always
+          securityContext:
+            runAsUser: 65532
+            runAsGroup: 65532
+            privileged: false
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+            procMount: Default
+          resources:
+            requests:
+              cpu: 250m
+              memory: 32Mi
+            limits:
+              cpu: 500m
+              memory: 64Mi
+          ports:
+            - name: public  # External traffic
+              containerPort: 8080
+              protocol: TCP
+            - name: private # health checks, Prometheus etc.
+              containerPort: 8081
+              protocol: TCP
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+              readOnly: true
+            - name: nginx-writable
+              mountPath: /var/lib/nginx/
+              readOnly: false
+          startupProbe:
+            httpGet:
+              path: /nginx-up
+              port: private
+            initialDelaySeconds: 2 # tolerates 12 seconds startup time
+            periodSeconds: 2
+            timeoutSeconds: 2 
+            failureThreshold: 5
+        - name: nginx-exporter
+          image: nginx/nginx-prometheus-exporter:1.1.0
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            runAsUser: 65534
+            runAsGroup: 65534
+            privileged: false
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+            procMount: Default
+          resources:
+            requests:
+              cpu: 10m
+              memory: 10Mi
+            limits:
+              cpu: 50m
+              memory: 30Mi
+          args:
+            - "--nginx.scrape-uri=http://localhost:8081/nginx-status"
+          ports:
+            - name: metrics
+              containerPort: 9113
+              protocol: TCP
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: nginx-config
+            defaultMode: 0444
+        - name: nginx-writable
+          emptyDir:
+            medium: "" # disk
+            sizeLimit: 20Mi

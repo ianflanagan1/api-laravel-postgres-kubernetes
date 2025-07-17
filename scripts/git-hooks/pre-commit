@@ -1,0 +1,187 @@
+#!/bin/bash
+
+set -o errexit
+set -o nounset
+set -o pipefail
+set -o errtrace
+IFS=$'\n\t'
+# trap 'echo "Error occurred on line $LINENO. Exit code: $?" >&2' ERR
+# trap _general_cleanup EXIT
+
+readonly REQUIRED_COMMANDS=("docker" "jq")
+# readonly VUE_TEST_COVERAGE_THRESHOLD=65
+readonly PHP_TEST_COVERAGE_THRESHOLD=65
+readonly SCRIPTS_DIRECTORY="scripts"
+readonly VUE_DIRECTORY="frontend-vue"
+readonly LARAVEL_DIRECTORY="backend-laravel"
+
+readonly COMPOSE_APP_CONTAINER="wh-laravel-1"
+
+PROJECT_ROOT=$(git rev-parse --show-toplevel)
+
+### FUNCTIONS #######################################
+
+# Usage:
+#   get_changed_staged_files [directory] [prefix_to_strip] [extensions...]
+#
+# Get a list of staged files with relative paths that have changed since the last commit
+#
+# Arguments:
+#   directory        Optional. Default "". Directory 
+#   prefix_to_strip  Optional. Default "". Removes prefix from paths, e.g. for Laravel tools that treat the Laravel directory as the root
+#   glob_patterns    Optional. File extensions to filter
+
+function get_changed_staged_files() {
+    local directory="${1:-}"
+    local prefix_to_strip="${2:-}"
+    local diff_args=()
+
+    if [[ -n "${directory}" ]]; then
+        directory="${directory}/"
+    fi
+
+    # No globs passed
+    if [[ $# -lt 3 ]]; then
+        diff_args+=("${directory}*")
+
+    # Glob(s) passed
+    else
+        shift 2
+        for glob in "$@"; do
+            diff_args+=("${directory}${glob}")
+        done
+    fi
+
+    # echo "${diff_args[@]}"
+    # echo "---"
+
+    git diff --cached --name-only --diff-filter=ACMB -- "${diff_args[@]}" | \
+        if [[ -n "${prefix_to_strip}" ]]; then
+            sed "s#^${prefix_to_strip}##"
+        else
+            cat
+        fi
+            # --cached        compare with the last committed version (HEAD), not working directory
+            # --name-only     only return relative path and filename
+            # --diff-filter   A added, C copied, M modified, B broken (complex split/copy/rename)
+
+            # files/directories in .gitignore can never appear as the results from this command
+}
+
+function is_container_running() {
+    readonly CONTAINER_NAME=${1-}
+
+    if [ -z "${CONTAINER_NAME}" ]; then
+        echo "Error: Must pass an argument to is_container_running" >&2
+        exit 1
+    fi
+
+    docker ps --format '{{.Names}}' | grep -Fxq "${CONTAINER_NAME}"
+}
+
+# Usage: _validate_commands <commands>
+# Example: _validate_commands php git
+# Check important commands are available
+function _validate_commands() {
+    local __cmd
+    for __cmd in "${@}"; do
+        if ! command -v "${__cmd:?}" &>/dev/null; then
+            echo "'${__cmd}' command not found." >&2
+            exit 1
+        fi
+    done
+}
+
+### CHECKS COMMANDS #################################
+
+_validate_commands "${REQUIRED_COMMANDS[@]}"
+
+### VUE #############################################
+
+echo 'VUE'
+cd "${PROJECT_ROOT}/${VUE_DIRECTORY}"
+npx lint-staged --verbose
+
+### GET FILE ARRAYS #################################
+
+cd "${PROJECT_ROOT}"
+
+# Scripts: Get all changed, staged files in the scripts directory
+readarray -t SCRIPT_FILES_ARRAY < <(
+    get_changed_staged_files "${SCRIPTS_DIRECTORY}")
+
+# PHP: Get all changed, staged files in the laravel directory with .php extension
+readarray -t PHP_FILES_ARRAY < <(
+    get_changed_staged_files "${LARAVEL_DIRECTORY}" "${LARAVEL_DIRECTORY}/" "*.php")
+
+### SCRIPTS #########################################
+
+if [[ "${#SCRIPT_FILES_ARRAY[@]}" -gt 0 ]]; then
+    echo 'SHELLCHECK'
+    shellcheck -x "${SCRIPT_FILES_ARRAY[@]}"
+            # -x    also analyze commands from sourced files
+fi
+
+### PHP #############################################
+
+if [[ "${#PHP_FILES_ARRAY[@]}" -gt 0 ]]; then
+    cd "${PROJECT_ROOT}/${LARAVEL_DIRECTORY}"
+
+    # Validate composer.json and composer.lock
+    composer validate --no-check-publish --strict
+                # --no-check-publish    being unsuitable for publishing as a package isn't considered an error
+                # --strict              return non-zero for warnings
+
+    # PHPStan
+    # Consider filtering the PHP files further to align with the includes/excludes of phpstan.neon
+    # But currently (and generally), this already aligns perfectly with PHP files that are ignored
+    # by .gitignore and therefore cannot appear in $PHP_FILES_ARRAY
+    # Filtering would be done like this, reading and injecting actual directories from phpstan.neon
+
+    # PHPSTAN_FILES_ARRAY=()
+    # for f in "${PHP_FILES_ARRAY[@]}"; do
+    #     [[ "$f" =~ ^(app|bootstrap|config|database|public|routes|tests)/ ]] || continue
+    #     [[ "$f" =~ ^bootstrap/cache/ ]] && continue
+    #     PHPSTAN_FILES_ARRAY+=("$f")
+    # done
+
+    # Note: For CI/CD pipeline, run phpstan on whole codebase, not just changed files
+    echo 'PHPSTAN'
+    ./vendor/bin/phpstan analyze --no-progress --memory-limit=1G --configuration=phpstan.neon "${PHP_FILES_ARRAY[@]}"
+
+    # PINT
+    echo 'PINT'
+
+    NON_TEST_FILES_ARRAY=()
+    TEST_FILES_ARRAY=()
+
+    for file in "${PHP_FILES_ARRAY[@]}"; do
+        if [[ $file == tests/* ]]; then
+            TEST_FILES_ARRAY+=("$file")
+        else
+            NON_TEST_FILES_ARRAY+=("$file")
+        fi
+    done
+
+    ./vendor/bin/pint -v --config=pint.json "${NON_TEST_FILES_ARRAY[@]}"
+    ./vendor/bin/pint -v --config=pint-tests.json "${TEST_FILES_ARRAY[@]}"
+    git add "${PHP_FILES_ARRAY[@]}"
+
+    # PHPUnit (run all tests except EndToEnd tests)
+    if ! is_container_running "${COMPOSE_APP_CONTAINER}"; then
+        echo "Docker Compose backend Laravel container us not running: '${COMPOSE_APP_CONTAINER}'" >&2
+        exit 1
+    fi
+
+    echo 'PHPUNIT'
+    GROUP_ID=$(id -g)
+    docker exec \
+		--user="www-data:${GROUP_ID}" \
+        "${COMPOSE_APP_CONTAINER}" \
+			sh -c "umask 0002; \
+            /usr/local/bin/run_php_tests.sh true ${PHP_TEST_COVERAGE_THRESHOLD} exclude EndToEnd-Backend,EndToEnd-Frontend"
+        # container executes: ./scripts/dev/run_php_tests.sh
+
+fi
+
+exit 0

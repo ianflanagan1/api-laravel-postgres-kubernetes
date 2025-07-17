@@ -1,0 +1,69 @@
+# Environment
+.env
+.env.*
+
+# Dependencies
+/vendor/
+/node_modules/
+
+# Version control
+.git/
+.gitignore
+.gitattributes
+
+# Development files
+.dockerignore
+*.sqlite
+README.md
+
+# Dev-only dependencies, e.g. /public/vendor/telescope/
+/public/vendor/
+
+# Cache, logs, development artifacts (but keep file structure)
+/bootstrap/cache/*
+/bootstrap/cache/.*
+/storage/app/private/*
+/storage/app/private/.*
+/storage/app/public/*
+/storage/app/public/.*
+/storage/framework/cache/*
+/storage/framework/cache/.*
+/storage/framework/sessions/*
+/storage/framework/sessions/.*
+/storage/framework/testing/*
+/storage/framework/testing/.*
+/storage/framework/views/*
+/storage/framework/views/.*
+/storage/logs/*
+/storage/logs/.*
+
+# Compliled frontend
+/public/build/
+/public/hot
+
+# Tests
+/tests/
+/coverage/
+phpunit.xml
+.phpunit.result.cache
+.php-cs-fixer.cache
+
+# IDE
+.vscode/
+.editorconfig
+
+# Misc
+*.key
+*.neon
+pint.json
+*.log
+*.swp
+*.swo
+*.bak
+*.bk
+*.tmp
+.idea/
+*.iml
+*.DS_Store
+Thumbs.db
+ehthumbs.db

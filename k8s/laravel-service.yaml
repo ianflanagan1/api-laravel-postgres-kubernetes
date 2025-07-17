@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: laravel
+  namespace: laravel
+  labels:
+    app: laravel
+spec:
+  type: ClusterIP
+  selector:
+    app: laravel
+  ports:
+    - name: public  # External traffic
+      protocol: TCP
+      port: 80
+      targetPort: 8080
+    - name: private # Health checks, Prometheus etc.
+      protocol: TCP
+      port: 8081
+      targetPort: 8081
+    - name: nginx-metrics
+      port: 9113
+      targetPort: 9113

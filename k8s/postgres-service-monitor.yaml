@@ -1,0 +1,18 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: postgres-service-monitor
+  namespace: monitoring # same as prometheus
+  labels:
+    release: prometheus # tells the prometheus operator which Prometheus instance should pick this up. helm install prometheus .....
+spec:
+  selector:
+    matchLabels:
+      app: postgres
+  endpoints:
+  - port: metrics
+    path: /metrics
+    interval: 15s
+  namespaceSelector:
+    matchNames:
+    - postgres

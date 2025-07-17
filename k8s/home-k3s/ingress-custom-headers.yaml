@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ingress-custom-headers
+  namespace: ingress-nginx
+data:
+  X-Request-Id: $request_id

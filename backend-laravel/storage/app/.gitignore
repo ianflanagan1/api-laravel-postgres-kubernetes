@@ -1,0 +1,6 @@
+*
+!private/
+!public/
+!tmp_uploads/
+!tmp_system/
+!.gitignore

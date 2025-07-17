@@ -1,0 +1,73 @@
+name: wh-backend-tcp-instead-of-socket
+
+services:
+  backend-nginx:
+    image: cgr.dev/chainguard/nginx:latest-dev
+    depends_on:
+      laravel:
+        condition: service_started
+    ports:
+      - 8080:8080
+    volumes:
+      - ./../config/tcp-instead-of-socket/backend/nginx/default.conf:/etc/nginx/nginx.conf:ro
+
+  laravel:
+    # image: wh-backend-laravel-dev
+    build:
+      context: .
+      target: dev
+      args:
+        USER_UID: "${UID:-1000}"
+        USER_GID: "${GID:-1000}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    working_dir: /app
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    volumes:
+      - ./../backend-laravel:/app:rw
+      - ./../config/prod/backend/php/php.ini:/usr/local/etc/php/php.ini:ro
+      - ./../config/dev/backend/php/php-dev-override.ini:/usr/local/etc/php/conf.d/php-dev-override.ini:ro
+      - ./../config/dev/backend/php/xdebug.ini:/usr/local/etc/php/conf.d/xdebug.ini:ro
+      - ./../config/tcp-instead-of-socket/backend/php-fpm/php-fpm.conf:/usr/local/etc/php-fpm.conf:ro
+
+  postgres:
+    image: docker.io/library/postgres:17.5-alpine
+    healthcheck:
+      test: ["CMD-SHELL", "sh", "-c", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      start_period: 10s
+      interval: 10s
+      timeout: 10s
+      retries: 3
+    env_file: ./../backend-laravel/.env
+    # ports:
+    #   - 5432:5432
+    volumes:
+      - postgres-data:/var/lib/postgresql/data:rw
+
+  redis:
+    image: docker.io/library/redis:7.4-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      start_period: 10s
+      interval: 10s
+      timeout: 10s
+      retries: 3
+    env_file: ./../backend-laravel/.env
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf", "--requirepass", "$(REDIS_PASSWORD)"]
+    # ports:
+    #   - 6379:6379
+    volumes:
+      - redis-data:/data:rw
+      - ./../config/prod/backend/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+
+volumes:
+  postgres-data:
+    driver: local
+  redis-data:
+    driver: local
+  # logs:
+  #   driver: local

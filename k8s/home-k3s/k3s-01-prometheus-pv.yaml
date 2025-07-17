@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: k3s-01-prometheus-pv
+  labels:
+    type: local
+spec:
+  storageClassName: prometheus-storage-class # chosen by us
+  capacity:
+    storage: 20Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  local: # or: nfs, awsElasticBlockStore, gcePersistentDisk, azureDisk
+    path: /mnt/ks3-01-usb-storage-mp/k8s-volumes/k3s-01-prometheus-pv
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - 01-frederic-chophpin

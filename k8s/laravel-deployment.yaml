@@ -1,0 +1,287 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: laravel
+  namespace: laravel
+  labels:
+    app: laravel
+  annotations:
+    container.apparmor.security.beta.kubernetes.io/laravel: runtime/default
+    container.apparmor.security.beta.kubernetes.io/nginx: runtime/default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: laravel
+  template:
+    metadata:
+      labels:
+        app: laravel
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 1 # todo: raise
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: laravel
+                topologyKey: "kubernetes.io/hostname"
+      initContainers:
+        - name: init-laravel
+          image: docker.io/ianflanagan1/wh-backend-laravel-prod:latest
+          imagePullPolicy: Always
+          securityContext:
+            runAsUser: 65532
+            runAsGroup: 65532
+            privileged: false
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+            procMount: Default
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          envFrom:
+            - secretRef:
+                name: laravel
+          command: [ "/bin/sh", "-c" ]
+          args:
+            - |
+              #!/bin/sh
+              set -eux
+
+              CACHE_WRITABLE=/app/bootstrap/cache
+              CACHE_TEMP=/app/bootstrap/cache-temp
+              STORAGE_APP_WRITABLE=/app/storage/app
+              STORAGE_APP_TEMP=/app/storage/app-temp
+
+              # Prepare Cache
+              cp -r "${CACHE_TEMP}/." "${CACHE_WRITABLE}/"
+              time -v php artisan config:cache --no-interaction --no-ansi
+              chmod 0440 "${CACHE_WRITABLE}/config.php"
+
+              # Prepare writable directory structure
+              for dir in "${STORAGE_APP_TEMP}"/*; do
+                  if [ -d "${dir}" ]; then
+                      dirname=$(basename "${dir}")
+                      mkdir -p "${STORAGE_APP_WRITABLE}/$dirname"
+                  fi
+              done
+
+              # Migrate database
+              time -v php artisan migrate --force --isolated --no-interaction --no-ansi
+          volumeMounts:
+            - name: laravel-cache
+              mountPath: /app/bootstrap/cache
+              readOnly: false
+            - name: laravel-writable
+              mountPath: /app/storage/app-temp
+              readOnly: false
+        - name: init-nginx
+          image: busybox:latest # todo: change to chainguard
+          # image: cgr.dev/chainguard/busybox:latest
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            runAsUser: 65532
+            runAsGroup: 65532
+            privileged: false
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+            procMount: Default
+          resources:
+            requests:
+              cpu: 5m
+              memory: 5Mi
+            limits:
+              cpu: 10m
+              memory: 10Mi
+          command: [ "/bin/sh", "-c" ]
+          args:
+            - |
+              #!/bin/sh
+              set -eux
+
+              mkdir -p \
+                /var/lib/nginx/cache/fastcgi \
+                /var/lib/nginx/cache/proxy \
+                /var/lib/nginx/tmp/client \
+                /var/lib/nginx/tmp/fastcgi \
+                /var/lib/nginx/tmp/proxy \
+                /var/lib/nginx/tmp/scgi \
+                /var/lib/nginx/tmp/uwsgi
+          volumeMounts:
+            - name: nginx-writable
+              mountPath: /var/lib/nginx
+      containers:
+        - name: laravel
+          image: docker.io/ianflanagan1/wh-backend-laravel-prod:latest
+          imagePullPolicy: Always
+          securityContext:
+            runAsUser: 65532
+            runAsGroup: 65532
+            privileged: false
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+            procMount: Default
+          # resources:
+          #   requests:
+          #     cpu: 250m
+          #     memory: 256Mi
+          #   limits:
+          #     cpu: 500m
+          #     memory: 512Mi
+          envFrom:
+            - secretRef:
+                name: laravel
+          volumeMounts:
+            - name: php-fpm-socket
+              mountPath: /var/run/php
+              readOnly: false
+            - name: laravel-cache
+              mountPath: /app/bootstrap/cache
+              readOnly: true
+            - name: laravel-writable
+              mountPath: /app/storage/app
+              readOnly: false
+            - name: php-config
+              mountPath: /usr/local/etc/php/php.ini
+              subPath: php.ini
+              readOnly: true
+            - name: php-fpm-config
+              mountPath: /usr/local/etc/php-fpm.conf
+              subPath: php-fpm.conf
+              readOnly: true
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  FCGI_CONNECT=/run/php/php-fpm.sock \
+                  FCGI_STATUS_PATH=/php-fpm-status \
+                  /usr/local/bin/php-fpm-healthcheck
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+        - name: nginx
+          image: docker.io/ianflanagan1/wh-backend-nginx-prod:latest
+          imagePullPolicy: Always
+          securityContext:
+            runAsUser: 65532
+            runAsGroup: 65532
+            privileged: false
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+            procMount: Default
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+          ports:
+            - name: public  # External traffic
+              containerPort: 8080
+              protocol: TCP
+            - name: private # Health checks, Prometheus etc.
+              containerPort: 8081
+              protocol: TCP
+          volumeMounts:
+            - name: php-fpm-socket
+              mountPath: /var/run/php
+              readOnly: false
+            - name: nginx-writable
+              mountPath: /var/lib/nginx/
+              readOnly: false
+            - name: nginx-config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+              readOnly: true
+          startupProbe:
+            httpGet:
+              path: /laravel-startup
+              port: private
+            initialDelaySeconds: 2 # Tolerates 20 seconds startup time
+            periodSeconds: 2
+            timeoutSeconds: 2 
+            failureThreshold: 5
+          readinessProbe:
+            httpGet:
+              path: /laravel-readiness
+              port: private
+            periodSeconds: 30
+            timeoutSeconds: 2
+            failureThreshold: 1
+        - name: nginx-exporter
+          image: nginx/nginx-prometheus-exporter:1.1.0
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            runAsUser: 65534
+            runAsGroup: 65534
+            privileged: false
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+            procMount: Default
+          resources:
+            requests:
+              cpu: 10m
+              memory: 10Mi
+            limits:
+              cpu: 50m
+              memory: 30Mi
+          args:
+            - "--nginx.scrape-uri=http://localhost:8081/nginx-status"
+          ports:
+            - name: nginx-metrics
+              containerPort: 9113
+              protocol: TCP
+      volumes:
+        - name: php-fpm-socket
+          emptyDir:
+            medium: Memory
+            sizeLimit: 1Mi
+        - name: laravel-cache
+          emptyDir:
+            medium: "" # Disk
+            sizeLimit: 1Mi
+        - name: laravel-writable
+          emptyDir:
+            medium: "" # disk
+            sizeLimit: 1Gi
+        - name: php-config
+          configMap:
+            name: php-config
+            defaultMode: 0444
+        - name: php-fpm-config
+          configMap:
+            name: php-fpm-config
+            defaultMode: 0444
+        - name: nginx-config
+          configMap:
+            name: nginx-config
+            defaultMode: 0444
+        - name: nginx-writable
+          emptyDir:
+            medium: "" # disk
+            sizeLimit: 20Mi

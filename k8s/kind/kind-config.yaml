@@ -1,0 +1,27 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+  - role: control-plane
+    extraPortMappings:
+      # NodePort
+      - containerPort: 30080
+        hostPort: 30080
+        protocol: TCP
+      - containerPort: 30081
+        hostPort: 30081
+        protocol: TCP
+      # Ingress
+      - containerPort: 80
+        hostPort: 80
+        protocol: TCP
+      - containerPort: 443
+        hostPort: 443
+        protocol: TCP
+  - role: worker
+    extraMounts:
+      - hostPath: /home/ianflanagan/temp/kind-bind-mount-1
+        containerPath: /bind-mount
+  - role: worker
+    extraMounts:
+      - hostPath: /home/ianflanagan/temp/kind-bind-mount-2
+        containerPath: /bind-mount

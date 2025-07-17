@@ -1,0 +1,29 @@
+includes:
+    - ./vendor/larastan/larastan/extension.neon
+    - phpstan-baseline.neon
+
+parameters:
+    level: 9            # 0-9
+    errorFormat: table  # raw table checkstyle json prettyJson junit github gitlab teamcity
+    paths:
+        - app
+        - bootstrap
+        - config
+        - database
+        - public
+        - routes
+        - tests
+    # excluding resources/ storage/ vendor/
+
+    ignoreErrors:
+        # - '#Call to an undefined method App\\Models\\User::customMethod\(\)#'
+        # - '#Argument #1 \(...\) of method ... expects ..., ... given.#'
+
+    excludePaths:
+        analyzeAndScan:
+            - bootstrap/cache/
+            # - database/factories/*
+            # - database/seeders/*
+
+# Generate a baseline to ignore existing errors:
+# ./vendor/bin/phpstan analyse --no-progress --memory-limit=1G --configuration=phpstan.neon --generate-baseline phpstan-baseline.neon

@@ -1,0 +1,135 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis
+  namespace: redis
+  labels:
+    app: redis
+  annotations:
+    container.apparmor.security.beta.kubernetes.io/laravel: runtime/default
+    container.apparmor.security.beta.kubernetes.io/nginx: runtime/default
+spec:
+  selector:
+    matchLabels:
+      app: redis
+  serviceName: redis
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: redis
+          image: docker.io/library/redis:7.4-alpine
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            runAsUser: 999
+            runAsGroup: 1000
+            privileged: false
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+            procMount: Default
+          resources:
+            requests:
+              cpu: 100m       # Single-threaded for core operations
+              memory: 75Mi
+            limits:
+              cpu: 500m
+              memory: 150Mi   # >= expected max data + overhead
+          command: ["/usr/local/bin/docker-entrypoint.sh"]
+          args:
+            - "redis-server"
+            - "/usr/local/etc/redis/redis.conf"
+            - "--requirepass"
+            - "$(REDIS_PASSWORD)"
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: redis
+                  key: REDIS_PASSWORD
+          ports:
+            - name: redis
+              protocol: TCP
+              containerPort: 6379
+          volumeMounts:
+            - name: redis-config
+              mountPath: /usr/local/etc/redis/redis.conf
+              subPath: redis.conf
+              readOnly: true
+            - name: data
+              mountPath: /data
+              readOnly: false
+        - name: redis-exporter
+          image: oliver006/redis_exporter:v1.54.0
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            runAsUser: 65534
+            runAsGroup: 65534
+            privileged: false
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+            procMount: Default
+          resources:
+            requests:
+              cpu: 10m
+              memory: 10Mi
+            limits:
+              cpu: 50m
+              memory: 30Mi
+          args:
+            - --redis.addr=redis://:$(REDIS_PASSWORD)@localhost:6379
+            - --web.listen-address=:9121
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: redis
+                  key: REDIS_PASSWORD
+          ports:
+            - name: metrics
+              protocol: TCP
+              containerPort: 9121
+      volumes:
+        - name: redis-config
+          secret:
+            secretName: redis
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        storageClassName: local-path
+        resources:
+          requests:
+            storage: 100Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: redis
+  labels:
+    app: redis
+spec:
+  clusterIP: None
+  selector:
+    app: redis
+  ports:
+    - name: redis
+      protocol: TCP
+      port: 6379
+      targetPort: 6379
+    - name: metrics
+      protocol: TCP
+      port: 9121
+      targetPort: 9121

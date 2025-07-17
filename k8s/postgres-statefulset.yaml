@@ -1,0 +1,212 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: postgres
+  labels:
+    app: postgres
+  annotations:
+    container.apparmor.security.beta.kubernetes.io/laravel: runtime/default
+    container.apparmor.security.beta.kubernetes.io/nginx: runtime/default
+spec:
+  selector:
+    matchLabels:
+      app: postgres
+  serviceName: postgres
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      securityContext:
+        # runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 30
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: postgres
+                topologyKey: "kubernetes.io/hostname"
+      containers:
+        - name: postgres
+          image: docker.io/library/postgres:17.5-alpine
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            # runAsUser: 70
+            # runAsGroup: 70
+            privileged: false
+            allowPrivilegeEscalation: false
+            # readOnlyRootFilesystem: true
+            # capabilities:
+            #   drop: ["ALL"]
+            procMount: Default
+          resources:
+            requests:
+              cpu: 500m
+              memory: 2Gi
+            limits:
+              cpu: 1000m
+              memory: 2Gi
+          command: [ "/bin/sh", "-c" ]
+          args:
+            - |
+              #!/bin/sh
+              set -eux
+
+              OS_POSTGRES_USER="postgres"
+              OS_POSTGRES_GROUP="postgres"
+              OFFICIAL_ENTRYPOINT="/usr/local/bin/docker-entrypoint.sh"
+
+              # extract '#' from the hostname "postgres-#"
+              POD_ORDINAL=$(hostname -s | rev | cut -d- -f1 | rev)
+
+              # Copy the config files out of the ConfigMap so they can be edited
+              # depending on whether this is a primary instance or standby instance
+              mkdir /config
+              chmod 0700 /config
+              cp -L /config_temp/postgresql.conf /config/postgresql.conf
+              cp -L /config_temp/pg_hba.conf /config/pg_hba.conf
+              chown -R ${OS_POSTGRES_USER}:${OS_POSTGRES_GROUP} /config
+              chmod 0600 /config/*
+
+              ### PRIMARY INSTANCE ###################
+              if [ "${POD_ORDINAL}" -eq "0" ]; then
+                echo "PRIMARY INSTANCE"
+
+                mkdir -p /data/archive
+                chown -R ${OS_POSTGRES_USER}:${OS_POSTGRES_GROUP} /data/archive
+
+                # edit config files
+                echo "wal_level = replica" >> "/config/postgresql.conf"
+                echo "max_wal_senders = 10" >> "/config/postgresql.conf"
+                echo "max_replication_slots = 10" >> "/config/postgresql.conf"
+                echo "listen_addresses = '*'" >> "/config/postgresql.conf"
+                echo "archive_mode = on" >> "/config/postgresql.conf"
+                echo "archive_command = 'test ! -f /data/archive/%f && cp %p /data/archive/%f'" >> "/config/postgresql.conf"
+
+                echo "host replication ${REPLICATION_USER} 0.0.0.0/0 md5" >> "/config/pg_hba.conf"
+                echo "host all all 0.0.0.0/0 md5" >> "/config/pg_hba.conf"
+                
+                #create a init template
+                echo "CREATE USER #REPLICATION_USER REPLICATION LOGIN ENCRYPTED PASSWORD '#REPLICATION_PASSWORD';" > init.sql
+                
+                # add credential
+                sed -i 's/#REPLICATION_USER/'${REPLICATION_USER}'/g' init.sql
+                sed -i 's/#REPLICATION_PASSWORD/'${REPLICATION_PASSWORD}'/g' init.sql
+
+                mkdir -p /docker-entrypoint-initdb.d/
+                cp init.sql /docker-entrypoint-initdb.d/init.sql
+
+              ### STANDBY INSTANCE ###################
+              else
+                echo "STANDBY INSTANCE"
+
+                echo "primary_conninfo = 'host=${PRIMARY_SERVER_ADDRESS} port=5432 user=${REPLICATION_USER} password=${REPLICATION_PASSWORD}'" >> "/config/postgresql.conf"
+                echo "hot_standby = on" >> "/config/postgresql.conf"
+                #echo "restore_command = 'cp /data/archive/%f %p'" >> "/config/postgresql.conf"
+
+                # if postgres data directory is missing or empty, initialize from primary instance
+                if [ ! -d "${PGDATA}" ] || [ -z "$(ls -A "${PGDATA}")" ]; then
+
+                  echo "Postgres data directory was missing or empty -> running pg_basebackup from primary instance"
+
+                  export PGPASSWORD=${REPLICATION_PASSWORD}
+                  pg_basebackup -h ${PRIMARY_SERVER_ADDRESS} -p 5432 -U ${REPLICATION_USER} -D ${PGDATA} -Fp -Xs -R
+                fi
+              fi
+
+              if [ ! -f "${OFFICIAL_ENTRYPOINT}" ]; then
+                  echo "ERROR: Official entrypoint script not found at ${OFFICIAL_ENTRYPOINT}"
+                  exit 1
+              fi
+
+              exec "${OFFICIAL_ENTRYPOINT}" postgres -c config_file="/config/postgresql.conf" "$@"
+          ports:
+            - name: postgres
+              protocol: TCP
+              containerPort: 5432
+          env:
+            - name: PGDATA
+              value: "/data/pgdata"
+            - name: PRIMARY_SERVER_ADDRESS
+              value: "postgres-0.postgres.postgres.svc.cluster.local"
+          envFrom:
+          - secretRef:
+              name: postgres
+          volumeMounts:
+            - name: config
+              mountPath: /config_temp
+            - name: initdb
+              mountPath: /docker-entrypoint-initdb.d
+            - name: data
+              mountPath: /data
+              readOnly: false
+        - name: postgres-exporter
+          image: quay.io/prometheuscommunity/postgres-exporter:v0.17.1
+          imagePullPolicy: 
+          securityContext:
+            runAsUser: 65534
+            runAsGroup: 65534
+            privileged: false
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+            procMount: Default
+          resources:
+            requests:
+              cpu: 20m
+              memory: 20Mi
+            limits:
+              cpu: 500m
+              memory: 60Mi
+          env:
+            - name: DATA_SOURCE_NAME
+              value: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:5432/${POSTGRES_DB}?sslmode=disable"
+            - name: PG_EXPORTER_WEB_LISTEN_ADDRESS
+              value: ":9187"
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres
+                  key: POSTGRES_USER
+                  optional: false
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres
+                  key: POSTGRES_PASSWORD
+                  optional: false
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: postgres
+                  key: POSTGRES_DB
+                  optional: false
+          ports:
+            - containerPort: 9187 # Exporter's metrics port
+              name: metrics
+              protocol: TCP
+      volumes:
+        - name: config
+          configMap:
+            name: postgres
+            defaultMode: 0755
+        - name: initdb
+          emptyDir:
+            medium: "" # disk
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        storageClassName: local-path
+        resources:
+          requests:
+            storage: 2Gi
