@@ -22,7 +22,7 @@ spec:
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
-      terminationGracePeriodSeconds: 1 # todo: raise
+      terminationGracePeriodSeconds: 1
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -138,13 +138,13 @@ spec:
             capabilities:
               drop: ["ALL"]
             procMount: Default
-          # resources:
-          #   requests:
-          #     cpu: 250m
-          #     memory: 256Mi
-          #   limits:
-          #     cpu: 500m
-          #     memory: 512Mi
+          resources:
+            requests:
+              cpu: 250m
+              memory: 96Mi
+            limits:
+              cpu: 500m
+              memory: 128Mi
           envFrom:
             - secretRef:
                 name: laravel
