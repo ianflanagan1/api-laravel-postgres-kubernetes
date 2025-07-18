@@ -34,7 +34,7 @@ class HealthCheckController extends Controller
         // Check cache connection
         try {
             // Redis::ping();
-            $key = self::STARTUP_PROBE_CACHE_KEY_PREFIX . Str::random(10);
+            $key = self::STARTUP_PROBE_CACHE_KEY_PREFIX.Str::random(10);
             $value = now()->toDateTimeString();
 
             Cache::put($key, $value, 5);
@@ -50,17 +50,20 @@ class HealthCheckController extends Controller
         }
 
         if (! empty($errors)) {
-            $output = 'down' . PHP_EOL . implode(PHP_EOL, $errors);
+            $output = 'down'.PHP_EOL.implode(PHP_EOL, $errors);
+
             return response($output, SymfonyResponse::HTTP_SERVICE_UNAVAILABLE)->header('Content-Type', 'text/plain');
         }
 
         $output = 'up';
+
         return response($output)->header('Content-Type', 'text/plain');
     }
 
     public function readiness(): Response
     {
         $output = 'up';
+
         return response($output)->header('Content-Type', 'text/plain');
     }
 
@@ -68,22 +71,22 @@ class HealthCheckController extends Controller
     {
         $output = '';
 
-        $output .= 'REALPATH CACHE' . PHP_EOL;
-        $output .= 'PID: ' . getmypid() . PHP_EOL;
-        $output .= 'realpath_cache_size() mb: ' . (realpath_cache_size() / 1024 / 1024) . ' / ' . ini_get('realpath_cache_size') . ' mb' . PHP_EOL;
+        $output .= 'REALPATH CACHE'.PHP_EOL;
+        $output .= 'PID: '.getmypid().PHP_EOL;
+        $output .= 'realpath_cache_size() mb: '.(realpath_cache_size() / 1024 / 1024).' / '.ini_get('realpath_cache_size').' mb'.PHP_EOL;
         $output .= PHP_EOL;
 
         // todo: analyse "hot" classes in production
-        $output .= 'OPCACHE' . PHP_EOL;
+        $output .= 'OPCACHE'.PHP_EOL;
 
         $status = opcache_get_status(true);
 
         if ($status) {
-            $output .= $status['cache_full'] ? 'CACHE FULL' . PHP_EOL : '';
-            $output .= '[memory_usage][used_memory]:                 ' . ($status['memory_usage']['used_memory'] / 1024 / 1024) . ' / ' . ini_get('opcache.memory_consumption') . ' mb' . PHP_EOL;
-            $output .= '[opcache_statistics][max_cached_keys]:       ' . $status['opcache_statistics']['num_cached_keys'] . ' / ' . ini_get('opcache.max_accelerated_files')  . PHP_EOL;
-            $output .= '[interned_strings_usage][used_memory]:       ' . ($status['interned_strings_usage']['used_memory'] / 1024 / 1024) . ' / ' . ini_get('opcache.interned_strings_buffer') . ' mb' . PHP_EOL;
-            $output .= '[interned_strings_usage][number_of_strings]: ' . $status['interned_strings_usage']['number_of_strings'] . PHP_EOL;
+            $output .= $status['cache_full'] ? 'CACHE FULL'.PHP_EOL : '';
+            $output .= '[memory_usage][used_memory]:                 '.($status['memory_usage']['used_memory'] / 1024 / 1024).' / '.ini_get('opcache.memory_consumption').' mb'.PHP_EOL;
+            $output .= '[opcache_statistics][max_cached_keys]:       '.$status['opcache_statistics']['num_cached_keys'].' / '.ini_get('opcache.max_accelerated_files').PHP_EOL;
+            $output .= '[interned_strings_usage][used_memory]:       '.($status['interned_strings_usage']['used_memory'] / 1024 / 1024).' / '.ini_get('opcache.interned_strings_buffer').' mb'.PHP_EOL;
+            $output .= '[interned_strings_usage][number_of_strings]: '.$status['interned_strings_usage']['number_of_strings'].PHP_EOL;
             $output .= PHP_EOL;
 
             $scripts = $status['scripts'];
@@ -95,7 +98,7 @@ class HealthCheckController extends Controller
 
             // Print scripts
             foreach ($scripts as $script) {
-                $output .= $script['full_path'] . ': ' . $script['hits'] . ' hits' . PHP_EOL;
+                $output .= $script['full_path'].': '.$script['hits'].' hits'.PHP_EOL;
             }
         }
 

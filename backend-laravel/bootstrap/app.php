@@ -20,14 +20,14 @@ use Illuminate\Http\Middleware\ValidatePostSize;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
-        web: __DIR__ . '/../routes/web.php',
-        api: __DIR__ . '/../routes/api.php',
-        commands: __DIR__ . '/../routes/console.php',
+        web: __DIR__.'/../routes/web.php',
+        api: __DIR__.'/../routes/api.php',
+        commands: __DIR__.'/../routes/console.php',
         // health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware
-            ->trustProxies(at: [ '10.42.0.0/16' ])  // Ingress Controller
+            ->trustProxies(at: ['10.42.0.0/16'])  // Ingress Controller
             ->use([])
             ->group('api', [
                 RequestLoggerMiddleware::class,     // Keep first to record request duration last. Log the request after response sent
@@ -49,5 +49,5 @@ return Application::configure(basePath: dirname(__DIR__))
             ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        (new ApiExceptionHandler())->register($exceptions);
+        (new ApiExceptionHandler)->register($exceptions);
     })->create();

@@ -19,6 +19,7 @@ trait HandlesDbErrors
     // https://www.ibm.com/docs/en/i/7.6.0?topic=codes-listing-sqlstate-values
     // https://www.postgresql.org/docs/current/errcodes-appendix.html
     protected const int SQLSTATE_FOREIGN_KEY_CONSTRAINT = 23503;
+
     protected const int SQLSTATE_UNIQUE_CONSTRAINT = 23505;
 
     protected function handleDbErrors(Closure $callback): JsonResponse
@@ -47,6 +48,7 @@ trait HandlesDbErrors
                 return $this->handleForPostgres($e);
             default:
                 $this->logQueryException($e, 'DB connection name was not handled');
+
                 return ApiResponseBuilder::error();
         }
     }
@@ -61,6 +63,7 @@ trait HandlesDbErrors
 
                 if ($field == '') {
                     $this->logQueryException($e, 'Failed to extract column name from error message');
+
                     return ApiResponseBuilder::error(ApiErrorCode::VALIDATION_GENERAL);
                 }
 
@@ -71,6 +74,7 @@ trait HandlesDbErrors
         }
 
         $this->logQueryException($e, 'Postgres error code was not handled');
+
         return ApiResponseBuilder::error();
     }
 
@@ -101,7 +105,7 @@ trait HandlesDbErrors
 
     protected function logQueryException(QueryException $e, string $message): void
     {
-        LogService::error('QueryException: ' . $message, [
+        LogService::error('QueryException: '.$message, [
             'message' => $e->getMessage(), // todo: Remove bound values
             'code' => $e->getCode(),
             'connection' => $e->getConnectionName(),

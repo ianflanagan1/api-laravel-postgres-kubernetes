@@ -13,7 +13,7 @@ Route::prefix('v1')->group(
         Route::post('/login', [AuthController::class, 'login']);
 
         Route::middleware([
-            ApiAuthMiddleware::class . ':sanctum',  // Creates $request->user()
+            ApiAuthMiddleware::class.':sanctum',  // Creates $request->user()
             'throttle:api',                         // Relies on $request->user()
         ])->group(function () {
             Route::apiResource('items', ItemController::class);
@@ -39,7 +39,8 @@ Route::prefix('v1')->group(
             }
             */
 
-            Log::error('CSP Violation:' . $request->getContent());
+            Log::error('CSP Violation:'.$request->getContent());
+
             return response()->noContent(204);
         });
     }

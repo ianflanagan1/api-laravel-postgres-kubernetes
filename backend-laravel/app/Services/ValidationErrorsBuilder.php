@@ -51,17 +51,17 @@ class ValidationErrorsBuilder
 
         foreach ($failures as $failure => $value) {
             $errors[] = match ($failure) {
-                'Max'       => self::createMaxError($field, $fieldRules, (int) $value[0]),
-                'Min'       => self::createMinError($field, $fieldRules, (int) $value[0]),
-                'NotRegex'  => self::createNotRegexError($field, $value[0]),
-                'Required'  => new ApiError(ApiErrorCode::VALIDATION_REQUIRED, ['field' => $field]),
-                'Unique'    => new ApiError(ApiErrorCode::VALIDATION_UNIQUE, ['field' => $field]),
-                'String'    => new ApiError(ApiErrorCode::VALIDATION_STRING, ['field' => $field]),
-                'Integer'   => new ApiError(ApiErrorCode::VALIDATION_INTEGER, ['field' => $field]),
-                'Email'     => new ApiError(ApiErrorCode::VALIDATION_EMAIL, ['field' => $field]),
+                'Max' => self::createMaxError($field, $fieldRules, (int) $value[0]),
+                'Min' => self::createMinError($field, $fieldRules, (int) $value[0]),
+                'NotRegex' => self::createNotRegexError($field, $value[0]),
+                'Required' => new ApiError(ApiErrorCode::VALIDATION_REQUIRED, ['field' => $field]),
+                'Unique' => new ApiError(ApiErrorCode::VALIDATION_UNIQUE, ['field' => $field]),
+                'String' => new ApiError(ApiErrorCode::VALIDATION_STRING, ['field' => $field]),
+                'Integer' => new ApiError(ApiErrorCode::VALIDATION_INTEGER, ['field' => $field]),
+                'Email' => new ApiError(ApiErrorCode::VALIDATION_EMAIL, ['field' => $field]),
                 'Confirmed' => new ApiError(ApiErrorCode::VALIDATION_CONFIRMED, ['field' => $field]),
                 'Illuminate\Validation\Rules\Password' => new ApiError(ApiErrorCode::VALIDATION_PASSWORD),
-                default     => self::createErrorForUnhandledFailure($field, $failure, $failures),
+                default => self::createErrorForUnhandledFailure($field, $failure, $failures),
             };
         }
 
@@ -85,6 +85,7 @@ class ValidationErrorsBuilder
                 'failures' => $failures,
             ]
         );
+
         return new ApiError(ApiErrorCode::VALIDATION_GENERAL);
     }
 
@@ -144,6 +145,7 @@ class ValidationErrorsBuilder
                         'pattern' => $pattern,
                     ]
                 );
+
                 return new ApiError(ApiErrorCode::VALIDATION_GENERAL);
         }
 

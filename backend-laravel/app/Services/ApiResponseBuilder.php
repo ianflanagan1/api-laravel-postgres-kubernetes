@@ -19,8 +19,8 @@ class ApiResponseBuilder
     /**
      * Return a success JSON response
      *
-     * @param string|int|float|bool|array<string, mixed>|Arrayable<string, mixed>|JsonSerializable $data The data to include in the response
-     * @param int  $status  The HTTP status code
+     * @param  string|int|float|bool|array<string, mixed>|Arrayable<string, mixed>|JsonSerializable  $data  The data to include in the response
+     * @param  int  $status  The HTTP status code
      */
     public static function success(
         string|int|float|bool|array|Arrayable|JsonSerializable $data = ['result' => 'success'],
@@ -37,8 +37,8 @@ class ApiResponseBuilder
      *
      * @template TModel of Model
      *
-     * @param LengthAwarePaginator<int, TModel> $paginator
-     * @param class-string $resourceClass
+     * @param  LengthAwarePaginator<int, TModel>  $paginator
+     * @param  class-string  $resourceClass
      */
     public static function paginated(
         LengthAwarePaginator $paginator,
@@ -59,11 +59,11 @@ class ApiResponseBuilder
     /**
      * Return JSON response with an array of errors
      *
-     * @param array<ApiError> $errors Array of errors (arrays with message, followed by code)
-     * @param int  $status The HTTP status code
+     * @param  array<ApiError>  $errors  Array of errors (arrays with message, followed by code)
+     * @param  int  $status  The HTTP status code
      */
     public static function errors(
-        array $errors = [new ApiError()],
+        array $errors = [new ApiError],
         int $status = SymfonyResponse::HTTP_INTERNAL_SERVER_ERROR
     ): JsonResponse {
         return response()->json(
@@ -77,8 +77,8 @@ class ApiResponseBuilder
     /**
      * Return JSON response with an array of errors containing only one element
      *
-     * @param ApiErrorCode $code Error code
-     * @param int $status The HTTP status code
+     * @param  ApiErrorCode  $code  Error code
+     * @param  int  $status  The HTTP status code
      */
     public static function error(
         ApiErrorCode $code = ApiErrorCode::UNKNOWN,                 // Align this with \App\DTOs\ApiError default value
@@ -101,7 +101,7 @@ class ApiResponseBuilder
     /**
      * Return a response with no body / content
      *
-     * @param int $status The HTTP status code
+     * @param  int  $status  The HTTP status code
      */
     // public static function noBody(int $status = SymfonyResponse::HTTP_NO_CONTENT): Response
     // {

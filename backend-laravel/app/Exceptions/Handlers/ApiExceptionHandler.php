@@ -61,12 +61,14 @@ class ApiExceptionHandler
                     case SymfonyResponse::HTTP_TOO_MANY_REQUESTS:   return ApiResponseBuilder::error(ApiErrorCode::RATE_LIMITED, $status);
                     default:
                         LogService::exception($e, 'HttpException');
+
                         return ApiResponseBuilder::error(ApiErrorCode::UNKNOWN, $status);
                 }
             })
 
             ->render(function (Throwable $e): JsonResponse {
                 LogService::exception($e, 'Throwable');
+
                 return ApiResponseBuilder::error(ApiErrorCode::UNKNOWN, SymfonyResponse::HTTP_INTERNAL_SERVER_ERROR);
             });
     }

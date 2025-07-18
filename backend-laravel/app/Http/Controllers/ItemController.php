@@ -43,7 +43,7 @@ class ItemController extends Controller
         return $this->handleDbErrors(function () use ($request): JsonResponse {
             /**
              * @var User $user
-             * Ensured by ApiAuthMiddleware::class in authenticated endpoints
+             *           Ensured by ApiAuthMiddleware::class in authenticated endpoints
              */
             $user = $request->user();
             $item = $user->items()->create($request->validated());

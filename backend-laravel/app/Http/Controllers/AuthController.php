@@ -38,7 +38,7 @@ class AuthController extends Controller
 
         /**
          * @var string $password
-         * Ensured by 'string' validation rule in \App\Http\Requests\AuthLoginRequest
+         *             Ensured by 'string' validation rule in \App\Http\Requests\AuthLoginRequest
          */
         $password = $request->validated()['password'];
 
@@ -60,7 +60,7 @@ class AuthController extends Controller
     {
         /**
          * @var User $user
-         * Ensured by ApiAuthMiddleware::class in authenticated endpoints
+         *           Ensured by ApiAuthMiddleware::class in authenticated endpoints
          */
         $user = $request->user();
 

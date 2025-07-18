@@ -15,9 +15,7 @@ use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
  */
 class InjectMetaMiddleware
 {
-    public function __construct(protected RequestContextService $requestContextService)
-    {
-    }
+    public function __construct(protected RequestContextService $requestContextService) {}
 
     public function handle(Request $request, Closure $next): SymfonyResponse
     {

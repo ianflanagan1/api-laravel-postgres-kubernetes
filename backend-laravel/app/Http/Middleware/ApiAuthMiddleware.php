@@ -15,7 +15,6 @@ class ApiAuthMiddleware extends Authenticate
      * Handle an incoming request.
      *
      * @param  \Illuminate\Http\Request  $request
-     * @param  \Closure  $next
      * @param  string  ...$guards
      * @return mixed
      *
@@ -36,9 +35,8 @@ class ApiAuthMiddleware extends Authenticate
     /**
      * Handle an unauthenticated user.
      *
-     * @param  \Illuminate\Http\Request $request
-     * @param  array<string> $guards
-     * @return never
+     * @param  \Illuminate\Http\Request  $request
+     * @param  array<string>  $guards
      *
      * @throws \Illuminate\Auth\AuthenticationException
      */

@@ -12,11 +12,10 @@ class LogService
     /**
      * Logs a detailed exception error.
      *
-     * @param Throwable $e The exception object.
-     * @param string $message The custom message for the log.
-     * @param array<string, mixed> $context Additional context data for the log.
-     * @param bool $addTrace Add the stack trace to the log or not.
-     * @return void
+     * @param  Throwable  $e  The exception object.
+     * @param  string  $message  The custom message for the log.
+     * @param  array<string, mixed>  $context  Additional context data for the log.
+     * @param  bool  $addTrace  Add the stack trace to the log or not.
      */
     public static function exception(
         Throwable $e,
@@ -29,7 +28,7 @@ class LogService
         }
 
         Log::error(
-            "{$message}: {$e->getMessage()} {$e->getFile()}({$e->getLine()}) {$e->getCode()} " . get_class($e),
+            "{$message}: {$e->getMessage()} {$e->getFile()}({$e->getLine()}) {$e->getCode()} ".get_class($e),
             $context
         );
     }
@@ -37,9 +36,8 @@ class LogService
     /**
      * Logs the message and location of an unexpected error.
      *
-     * @param string $message The custom message for the log.
-     * @param array<string, mixed> $context Additional context data for the log.
-     * @return void
+     * @param  string  $message  The custom message for the log.
+     * @param  array<string, mixed>  $context  Additional context data for the log.
      */
     public static function error(string $message, array $context = []): void
     {

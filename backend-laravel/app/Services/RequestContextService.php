@@ -11,6 +11,7 @@ use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 class RequestContextService
 {
     protected float $startTime;
+
     /**
      * @var array<string, int>|false
      */
@@ -57,7 +58,6 @@ class RequestContextService
         return (int) round((microtime(true) - $this->startTime) * 1000);
     }
 
-
     /**
      * Calculate and get the "CPU-time" duration of the request in milliseconds.
      *
@@ -95,7 +95,7 @@ class RequestContextService
         }
         // Cookies
         foreach ($response->headers->getCookies() as $cookie) {
-            $cookieLine = 'Set-Cookie: ' . $cookie->__toString();
+            $cookieLine = 'Set-Cookie: '.$cookie->__toString();
             $headerBytes += strlen($cookieLine) + 2;
         }
 
@@ -115,8 +115,7 @@ class RequestContextService
     }
 
     /**
-     * @param array<string, int> $rusage
-     * @return float
+     * @param  array<string, int>  $rusage
      */
     protected function rusageToMs(array $rusage): float
     {

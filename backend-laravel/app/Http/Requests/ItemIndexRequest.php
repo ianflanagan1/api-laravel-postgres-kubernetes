@@ -32,7 +32,7 @@ class ItemIndexRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'per_page' => ['integer', 'min:' . self::PER_PAGE_MIN, 'max:' . self::PER_PAGE_MAX],
+            'per_page' => ['integer', 'min:'.self::PER_PAGE_MIN, 'max:'.self::PER_PAGE_MAX],
             'page' => ['integer', 'min:1'],
         ];
     }
@@ -44,7 +44,7 @@ class ItemIndexRequest extends FormRequest
     {
         /**
          * @var int $value
-         * Ensured by `integer` validation rule in rules() above
+         *          Ensured by `integer` validation rule in rules() above
          * */
         $value = $this->validated('per_page');
 
@@ -58,7 +58,7 @@ class ItemIndexRequest extends FormRequest
     {
         /**
          * @var int $value
-         * Ensured by `integer` validation rule in rules() above
+         *          Ensured by `integer` validation rule in rules() above
          * */
         $value = $this->validated('page');
 
