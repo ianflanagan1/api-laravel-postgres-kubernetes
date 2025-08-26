@@ -20,8 +20,10 @@ cd api-laravel-postgres-kubernetes
 cp backend-laravel/.env.example backend-laravel/.env
 sudo make up-detach
 sudo make composer-install
-npm --prefix ./frontend-vue install
-npm --prefix ./frontend-vue run dev
+sudo make migrate
+sudo make seed
+npm --prefix frontend-vue install
+npm --prefix frontend-vue run dev
 ```
 Access the frontend at `http://localhost:3000` and the API at `http://localhost:8080`.
 

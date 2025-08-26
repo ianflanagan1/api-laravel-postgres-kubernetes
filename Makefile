@@ -93,6 +93,13 @@ composer-require: arg-check
 composer-remove: arg-check
 	$(call composer-cmd,remove $(A))
 
+migrate:
+	$(call exec-laravel,php artisan migrate)
+migrate-fresh:
+	$(call exec-laravel,php artisan migrate:fresh)
+seed:
+	$(call exec-laravel,php artisan db:seed)
+
 ##### OTHER CONTAINERS #####
 
 define exec-cmd
