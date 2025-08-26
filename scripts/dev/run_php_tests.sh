@@ -55,7 +55,7 @@ if [ -n "${SPECIFIED_TEST}" ]; then
 fi
 
 if [ ! -t 1 ]; then
-    set -- "$@" --colors=always --ansi
+    set -- "$@" --colors=always --ansi --testdox
 fi
 
 echo "--- Running PHPUnit tests ---"

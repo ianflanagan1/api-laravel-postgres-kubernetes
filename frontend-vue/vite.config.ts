@@ -10,7 +10,7 @@ export default defineConfig({
   build: {
     assetsInlineLimit: 0, // Don't inline small assets; CSP will block them
   },
-  base: './', // Use relative paths
+  base: '/',
   server: {
     // Dev server
     port: 3000,

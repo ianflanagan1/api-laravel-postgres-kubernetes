@@ -1,12 +1,13 @@
 .env
 .env.*
+!.env.example
+!.env.testing
 
 /vendor/
 /node_modules/
 
 /.phpunit.cache
 /.phpunit.result.cache
-/phpstan-baseline.neon
 /coverage-report/
 
 /public/build

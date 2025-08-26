@@ -43,9 +43,8 @@ class ItemIndexRequest extends FormRequest
     public function getPerPage(): int
     {
         /**
-         * @var int $value
-         *          Ensured by `integer` validation rule in rules() above
-         * */
+         * @var int $value Ensured by `integer` validation rule in rules() above
+         */
         $value = $this->validated('per_page');
 
         return (int) $value;
@@ -57,9 +56,8 @@ class ItemIndexRequest extends FormRequest
     public function getPage(): int
     {
         /**
-         * @var int $value
-         *          Ensured by `integer` validation rule in rules() above
-         * */
+         * @var int $value Ensured by `integer` validation rule in rules() above
+         */
         $value = $this->validated('page');
 
         return (int) $value;

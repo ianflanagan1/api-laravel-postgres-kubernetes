@@ -119,7 +119,7 @@ readarray -t PHP_FILES_ARRAY < <(
 if [[ "${#SCRIPT_FILES_ARRAY[@]}" -gt 0 ]]; then
     echo 'SHELLCHECK'
     shellcheck -x "${SCRIPT_FILES_ARRAY[@]}"
-            # -x    also analyze commands from sourced files
+            # -x    also analyse commands from sourced files
 fi
 
 ### PHP #############################################
@@ -147,7 +147,7 @@ if [[ "${#PHP_FILES_ARRAY[@]}" -gt 0 ]]; then
 
     # Note: For CI/CD pipeline, run phpstan on whole codebase, not just changed files
     echo 'PHPSTAN'
-    ./vendor/bin/phpstan analyze --no-progress --memory-limit=1G --configuration=phpstan.neon "${PHP_FILES_ARRAY[@]}"
+    ./vendor/bin/phpstan analyse --no-progress --memory-limit=1G --configuration=phpstan.neon "${PHP_FILES_ARRAY[@]}"
 
     # PINT
     echo 'PINT'

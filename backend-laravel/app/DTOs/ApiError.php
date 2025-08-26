@@ -11,6 +11,8 @@ final class ApiError
     public string $message;
 
     /**
+     * A value object representing a user-visible error with a machine-readable code.
+     *
      * @param  ApiErrorCode  $code  The numerical error code.
      * @param  array<string, scalar>  $placeholders  Array of placeholders with text to inject into the human-readable error message.
      */

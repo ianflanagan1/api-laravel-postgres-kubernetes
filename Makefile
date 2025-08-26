@@ -52,9 +52,17 @@ arg-check:
 	fi
 
 up:
-	docker compose -f docker/compose.yaml up --build
+	docker compose -f docker/compose.yaml --env-file ./$(LARAVEL_DIRECTORY)/.env up --build
+
+up-detach:
+	docker compose -f docker/compose.yaml --env-file ./$(LARAVEL_DIRECTORY)/.env up --build --detach
+
 down:
 	docker compose -f docker/compose.yaml down
+
+down-delete:
+	docker compose -f docker/compose.yaml down --volumes --remove-orphans
+
 
 ##### LARAVEL CONTAINER #####
 
@@ -78,6 +86,8 @@ endef
 
 composer-install:
 	$(call composer-cmd,install)
+composer-update:
+	$(call composer-cmd,update)
 composer-require: arg-check
 	$(call composer-cmd,require $(A))
 composer-remove: arg-check
@@ -111,17 +121,13 @@ shell-frontend-nginx: exec-frontend-BACKEND_NGINX_DEV_IMAGE
 
 phpstan:
 	cd $(LARAVEL_DIRECTORY) && \
-	if [ -z "$(A)" ]; then \
-		./vendor/bin/phpstan analyze --no-progress --memory-limit=1G --configuration=phpstan.neon; \
-	else \
-		./vendor/bin/phpstan analyze --no-progress --memory-limit=1G --configuration=phpstan.neon "$(A)"; \
-	fi
+		php ./vendor/bin/phpstan analyse --no-progress --memory-limit=1G --configuration=phpstan.neon $(filter-out $@,$(MAKECMDGOALS))
 
 pint:
 	cd $(LARAVEL_DIRECTORY) && \
-  	./vendor/bin/pint -v --config=pint.json
+  	php ./vendor/bin/pint -v --config=pint.json
 	cd $(LARAVEL_DIRECTORY) && \
-  	./vendor/bin/pint -v --config=pint-tests.json tests/
+  	php ./vendor/bin/pint -v --config=pint-tests.json tests/
 
 test:
 	docker exec \

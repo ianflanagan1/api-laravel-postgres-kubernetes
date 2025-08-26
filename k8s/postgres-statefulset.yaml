@@ -92,10 +92,10 @@ spec:
 
                 echo "host replication ${REPLICATION_USER} 0.0.0.0/0 md5" >> "/config/pg_hba.conf"
                 echo "host all all 0.0.0.0/0 md5" >> "/config/pg_hba.conf"
-                
+
                 #create a init template
                 echo "CREATE USER #REPLICATION_USER REPLICATION LOGIN ENCRYPTED PASSWORD '#REPLICATION_PASSWORD';" > init.sql
-                
+
                 # add credential
                 sed -i 's/#REPLICATION_USER/'${REPLICATION_USER}'/g' init.sql
                 sed -i 's/#REPLICATION_PASSWORD/'${REPLICATION_PASSWORD}'/g' init.sql

@@ -42,8 +42,7 @@ class ItemController extends Controller
     {
         return $this->handleDbErrors(function () use ($request): JsonResponse {
             /**
-             * @var User $user
-             *           Ensured by ApiAuthMiddleware::class in authenticated endpoints
+             * @var User $user Ensured by ApiAuthMiddleware::class in authenticated endpoints
              */
             $user = $request->user();
             $item = $user->items()->create($request->validated());
@@ -52,13 +51,6 @@ class ItemController extends Controller
                 new ItemPublicFullResource($item),
                 SymfonyResponse::HTTP_CREATED
             );
-
-            // return DB::transaction(function () use ($item): JsonResponse {
-            //     return ApiResponseBuilder::success(
-            //         new ItemPublicFullResource($item),
-            //         SymfonyResponse::HTTP_CREATED
-            //     );
-            // }, 1);
         });
     }
 

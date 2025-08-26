@@ -20,7 +20,7 @@ parameters:
         # - '#Argument #1 \(...\) of method ... expects ..., ... given.#'
 
     excludePaths:
-        analyzeAndScan:
+        analyseAndScan:
             - bootstrap/cache/
             # - database/factories/*
             # - database/seeders/*

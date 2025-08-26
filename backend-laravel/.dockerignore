@@ -37,7 +37,7 @@ README.md
 /storage/logs/*
 /storage/logs/.*
 
-# Compliled frontend
+# Compiled frontend
 /public/build/
 /public/hot
 
@@ -56,6 +56,7 @@ phpunit.xml
 *.key
 *.neon
 pint.json
+pint-test.json
 *.log
 *.swp
 *.swo
