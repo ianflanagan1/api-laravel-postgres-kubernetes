@@ -2,6 +2,8 @@
 
 A generic Laravel API and Vue frontend with Docker Compose local environment and Kubernetes production environment.
 
+Detailed video explanation: [https://www.youtube.com/watch?v=G7Nug1Mr9VE](https://www.youtube.com/watch?v=G7Nug1Mr9VE)
+
 Access at: [https://wh-vue.ianf.dev/](https://wh-vue.ianf.dev/)
 
 ## Prerequisites
@@ -18,7 +20,8 @@ cd api-laravel-postgres-kubernetes
 cp backend-laravel/.env.example backend-laravel/.env
 sudo make up-detach
 sudo make composer-install
-npm run dev
+npm --prefix ./frontend-vue install
+npm --prefix ./frontend-vue run dev
 ```
 Access the frontend at `http://localhost:3000` and the API at `http://localhost:8080`.
 
@@ -32,7 +35,7 @@ Execute `sudo make down-delete` to stop and remove all containers, named volumes
 
 ```
 sudo chmod +x scripts/git-hooks/pre-commit
-ln -s scripts/git-hooks/pre-commit .git/hooks/pre-commit
+ln -s ../../scripts/git-hooks/pre-commit .git/hooks/pre-commit
 git add .
 .git/hooks/pre-commit
 ```
