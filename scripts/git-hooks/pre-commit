@@ -8,7 +8,7 @@ IFS=$'\n\t'
 # trap 'echo "Error occurred on line $LINENO. Exit code: $?" >&2' ERR
 # trap _general_cleanup EXIT
 
-readonly REQUIRED_COMMANDS=("docker" "jq")
+readonly REQUIRED_COMMANDS=("docker" "git" "npx" "shellcheck" "composer")
 # readonly VUE_TEST_COVERAGE_THRESHOLD=65
 readonly PHP_TEST_COVERAGE_THRESHOLD=65
 readonly SCRIPTS_DIRECTORY="scripts"
@@ -115,22 +115,33 @@ readarray -t PHP_FILES_ARRAY < <(
     get_changed_staged_files "${LARAVEL_DIRECTORY}" "${LARAVEL_DIRECTORY}/" "*.php")
 
 ### SCRIPTS #########################################
+echo 'SHELLCHECK'
 
-if [[ "${#SCRIPT_FILES_ARRAY[@]}" -gt 0 ]]; then
-    echo 'SHELLCHECK'
+if [[ "${#SCRIPT_FILES_ARRAY[@]}" -eq 0 ]]; then
+    echo "No script files were changed. Skipping."
+else
     shellcheck -x "${SCRIPT_FILES_ARRAY[@]}"
-            # -x    also analyse commands from sourced files
+        # -x    also analyse commands from sourced files
 fi
 
 ### PHP #############################################
+echo 'PHP'
 
-if [[ "${#PHP_FILES_ARRAY[@]}" -gt 0 ]]; then
-    cd "${PROJECT_ROOT}/${LARAVEL_DIRECTORY}"
+if [[ "${#PHP_FILES_ARRAY[@]}" -eq 0 ]]; then
+    echo "No PHP files were changed. Skipping."
+else
+    if ! is_container_running "${COMPOSE_APP_CONTAINER}"; then
+        echo "Docker Compose backend Laravel container is not running: '${COMPOSE_APP_CONTAINER}'" >&2
+        exit 1
+    fi
 
     # Validate composer.json and composer.lock
-    composer validate --no-check-publish --strict
-                # --no-check-publish    being unsuitable for publishing as a package isn't considered an error
-                # --strict              return non-zero for warnings
+    make exec-laravel A="composer validate --no-check-publish --strict"
+        # --no-check-publish    being unsuitable for publishing as a package isn't considered an error
+        # --strict              return non-zero for warnings
+
+
+    cd "${PROJECT_ROOT}/${LARAVEL_DIRECTORY}"
 
     # PHPStan
     # Consider filtering the PHP files further to align with the includes/excludes of phpstan.neon
@@ -165,14 +176,10 @@ if [[ "${#PHP_FILES_ARRAY[@]}" -gt 0 ]]; then
 
     ./vendor/bin/pint -v --config=pint.json "${NON_TEST_FILES_ARRAY[@]}"
     ./vendor/bin/pint -v --config=pint-tests.json "${TEST_FILES_ARRAY[@]}"
+
     git add "${PHP_FILES_ARRAY[@]}"
 
     # PHPUnit (run all tests except EndToEnd tests)
-    if ! is_container_running "${COMPOSE_APP_CONTAINER}"; then
-        echo "Docker Compose backend Laravel container us not running: '${COMPOSE_APP_CONTAINER}'" >&2
-        exit 1
-    fi
-
     echo 'PHPUNIT'
     GROUP_ID=$(id -g)
     docker exec \
@@ -183,5 +190,7 @@ if [[ "${#PHP_FILES_ARRAY[@]}" -gt 0 ]]; then
         # container executes: ./scripts/dev/run_php_tests.sh
 
 fi
+
+echo 'Completed.'
 
 exit 0

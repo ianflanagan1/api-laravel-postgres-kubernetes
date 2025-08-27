@@ -93,6 +93,9 @@ composer-require: arg-check
 composer-remove: arg-check
 	$(call composer-cmd,remove $(A))
 
+key-generate:
+	make exec-laravel A="php artisan key:generate"
+# 	$(call exec-laravel,php artisan key:generate)
 migrate:
 	$(call exec-laravel,php artisan migrate)
 migrate-fresh:
