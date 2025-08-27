@@ -95,13 +95,12 @@ composer-remove: arg-check
 
 key-generate:
 	make exec-laravel A="php artisan key:generate"
-# 	$(call exec-laravel,php artisan key:generate)
 migrate:
-	$(call exec-laravel,php artisan migrate)
+	make exec-laravel A="php artisan migrate"
 migrate-fresh:
-	$(call exec-laravel,php artisan migrate:fresh)
+	make exec-laravel A="php artisan migrate:fresh"
 seed:
-	$(call exec-laravel,php artisan db:seed)
+	make exec-laravel A="php artisan db:seed"
 
 ##### OTHER CONTAINERS #####
 
